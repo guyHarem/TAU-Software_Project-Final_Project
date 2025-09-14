@@ -3,6 +3,8 @@
 #include <math.h>
 #include <string.h>
 #define MAXLINE 1024 // Define max line length for the buffer size
+#define EPSILON 1e-4 // Define a small epsilon value for convergence checks
+#define MAX_ITER 300 // Define maximum number of iterations for convergence
 
 
 // Global variables to hold the number of vectors and their dimension
@@ -225,10 +227,253 @@ double** matrix_sym(double** matrix, int rsize, int csize) //USE N_C AND VECDIM_
 }
 
 
+/**
+ * Computes the Degree Diagonal Matrix (DDG) for a given matrix //MAKE SURE TO USE MATRIX_SYM BEFORE USING THIS FUNCTION
+ * @param matrix: input matrix
+ * @param rsize: number of rows in the matrix
+ * @param csize: number of columns in the matrix
+ * @return The allocated DDG matrix, or NULL on failure
+ */
+double** matrix_ddg(double** matrix, int rsize, int csize) {
+    int i, j;
+    double sum;
+    double** ddg_matrix = matrix_malloc(rsize, rsize);
+    if(ddg_matrix == NULL) {
+        fprintf(stderr, "An Error Has Occured");
+        return NULL;
+    }
+
+    for(i = 0; i < rsize; i++) {
+        sum = 0.0;
+        for(j = 0; j < csize; j++) {
+            sum += matrix[i][j];
+        }
+        for(j = 0; j < rsize; j++) {
+            ddg_matrix[i][j] = (i == j) ? sum : 0.0; // Diagonal matrix
+        }
+    }
+    return ddg_matrix;
+}
+
+
+/**
+ * Creates D^(-1/2) matrix from diagonal degree matrix
+ * @param D: diagonal degree matrix
+ * @param size: matrix size
+ * @return D^(-1/2) matrix, or NULL on failure
+ */
+double** matrix_inv_sqrt(double** D, int size) {
+    int i, j;
+    double** D_inv_sqrt = matrix_malloc(size, size);
+    if (D_inv_sqrt == NULL) return NULL;
+    
+    for (i = 0; i < size; i++) {
+        for (j = 0; j < size; j++) {
+            if (i == j && D[i][i] > 0) {
+                D_inv_sqrt[i][j] = 1.0 / sqrt(D[i][i]);
+            } else {
+                D_inv_sqrt[i][j] = 0.0;
+            }
+        }
+    }
+    return D_inv_sqrt;
+}
+
+/**
+ * Computes the normalized similarity matrix using SymNMF approach
+ * Given original data matrix, computes: W = D^(-1/2) * A * D^(-1/2)
+ * @param matrix: input data matrix (N x d)
+ * @param rsize: number of data points (N)
+ * @param csize: dimension of each data point (d)
+ * @return The normalized similarity matrix W, or NULL on failure
+ */
+double** matrix_norm(double** matrix, int rsize, int csize) {
+    double** A = matrix_sym(matrix, rsize, csize);
+    if (A == NULL) return NULL;
+    
+    double** D = matrix_ddg(A, rsize, rsize);
+    if (D == NULL) {
+        matrix_free(A, rsize);
+        return NULL;
+    }
+
+    double** D_inv_sqrt = matrix_inv_sqrt(D, rsize);
+    if (D_inv_sqrt == NULL) {
+        matrix_free(A, rsize);
+        matrix_free(D, rsize);
+        return NULL;
+    }
+    
+    double** temp = matrix_multiply(D_inv_sqrt, A, rsize, rsize, rsize);
+    double** W = NULL;
+    if (temp != NULL) {
+        W = matrix_multiply(temp, D_inv_sqrt, rsize, rsize, rsize);
+        matrix_free(temp, rsize);
+    }
+    
+    // Clean up all intermediate matrices after computations
+    matrix_free(A, rsize);
+    matrix_free(D, rsize);
+    matrix_free(D_inv_sqrt, rsize);
+    return W;
+}
+
+/**
+ * Computes the Frobenius norm (matrix 2-norm) of a matrix
+ * @param matrix: input matrix
+ * @param rsize: number of rows
+ * @param csize: number of columns
+ * @param is_squared: if non-zero, returns squared Frobenius norm; otherwise returns actual Frobenius norm
+ * @return The Frobenius norm as a double
+ */
+double frobenius_norm(double** matrix, int rsize, int csize, int is_squared) 
+{
+    double sum = 0.0;
+    for(int i = 0; i < rsize; i++) {
+        for(int j = 0; j < csize; j++) {
+            sum += matrix[i][j] * matrix[i][j];
+        }
+    }
+    return is_squared ? sum : sqrt(sum);
+}
+
+
+/**
+ * Checks convergence between two matrices based on relative Frobenius norm difference
+ * @param matrix_a: first input matrix
+ * @param matrix_b: second input matrix
+ * @param rsize: number of rows in both matrices
+ * @param csize: number of columns in both matrices
+ * @param EPSILON: convergence threshold
+ * @return 1 if converged, 0 otherwise
+ */
+double matrix_convergence(double** matrix_a, double** matrix_b, int rsize, int csize)
+{
+    double norm_diff = frobenius_norm(matrix_subtract(matrix_a, matrix_b, rsize, csize), rsize, csize, 0);
+    double norm_a = frobenius_norm(matrix_a, rsize, csize, 0);
+    if (norm_a == 0) {
+        return norm_diff < EPSILON; // Avoid division by zero
+    }
+    return (norm_diff / norm_a) < EPSILON;
+}
+
+// double matrix_convergence(double** matrix1, double** matrix2, int n, int m)
+// {
+//     double** result_matrix = matrix_substraction(matrix1, matrix2, n, m);
+//     double norm = forbius_norm(result_matrix, n, m, 1);
+//     matrix_free(result_matrix, n);
+    
+//     return norm;
+// }
 
 
 
 
 
+/**
+ * Computes the average of all elements in a matrix
+ * @param matrix: input data matrix
+ * @param rsize: number of rows in input matrix
+ * @param csize: number of columns in input matrix
+ * @return The average value of all elements in the matrix
+ */
+double matrix_avg(double** matrix, int rsize, int csize) {
+    double sum = 0.0;
+    for(int i = 0; i < rsize; i++) {
+        for(int j = 0; j < csize; j++) {
+            sum += matrix[i][j];
+        }
+    }
+    return sum / (rsize * csize);
+}
 
 
+
+/**
+ * Initializes matrix H with random values from interval [0, 2*sqrt(avg/k)]
+ * @param matrix: input data matrix to compute H from
+ * @param rsize: number of rows in input matrix
+ * @param csize: number of columns in input matrix
+ * @param k: number of clusters/factors //IS THIS THE SAME K AS IN THE COMMAND LINE???
+ * @return The initialized H matrix, or NULL on failure
+ */
+double** matrix_init_H(double** matrix, int rsize, int csize, int k) {
+    int i, j;
+    double avg, upper_bound;
+    double** H = NULL;
+    
+    // Allocate memory for H matrix (N x k)
+    H = matrix_malloc(rsize, k);
+    if (H == NULL) {
+        fprintf(stderr, "An Error Has Occured");
+        return NULL;
+    }
+    
+    // Calculate average using matrix_avg function
+    avg = matrix_avg(matrix, rsize, csize);
+    
+    // Calculate upper bound for random values
+    upper_bound = 2.0 * sqrt(avg / k);
+    
+    // Seed random number generator (call once) //DO IT IN THE PYTHON PART???
+    srand(time(NULL));
+    
+    // Populate H with random values in [0, upper_bound]
+    for (i = 0; i < rsize; i++) {
+        for (j = 0; j < k; j++) {
+            H[i][j] = ((double)rand() / RAND_MAX) * upper_bound;
+        }
+    }
+    return H;
+}
+
+
+
+
+// MISSING SOME CODE OF UPDATE H FUNCTION AND SYMNMF FUNCTION
+
+
+
+
+
+char* dup_string(char* str) //WE WERE NOT ALLWOED TO USE strpcpy?
+ {
+    char* str_copy = malloc(strlen(str) + 1);
+    if(str_copy == NULL) {
+        fprintf(stderr, "An Error Has Occured");
+        return NULL;
+    }
+        strcpy(str_copy, str);
+    return str_copy;
+}
+
+
+double** read_vectors_from_file(const char* filename, int* out_rsize, int* out_csize) {
+    FILE* file = fopen(filename, "r");
+    if (file == NULL) {
+        fprintf(stderr, "An Error Has Occured");
+        return NULL;
+    } 
+    char line[MAXLINE];
+    int rsize = 0;
+    int csize = -1;
+    double** matrix = NULL;
+    while (fgets(line, sizeof(line), file)) {
+        char* token;                                        
+        int col = 0;
+        token = strtok(line, " ");
+        while (token != NULL) {
+            double value = atof(token);
+            if (csize == -1) {
+                csize = 1;
+            } else {
+                csize++;
+            }
+            token = strtok(NULL, " ");
+        }
+        rsize++;
+    }
+    fclose(file);
+    *out_rsize = rsize;
+    *out_csize = csize;
+    return matrix;
