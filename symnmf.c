@@ -369,83 +369,30 @@ double matrix_convergence(double** matrix_a, double** matrix_b, int rsize, int c
 
 
 
-
-/**
- * Computes the average of all elements in a matrix
- * @param matrix: input data matrix
- * @param rsize: number of rows in input matrix
- * @param csize: number of columns in input matrix
- * @return The average value of all elements in the matrix
- */
-double matrix_avg(double** matrix, int rsize, int csize) {
-    double sum = 0.0;
-    for(int i = 0; i < rsize; i++) {
-        for(int j = 0; j < csize; j++) {
-            sum += matrix[i][j];
-        }
-    }
-    return sum / (rsize * csize);
-}
-
-
-
-/**
- * Initializes matrix H with random values from interval [0, 2*sqrt(avg/k)]
- * @param matrix: input data matrix to compute H from
- * @param rsize: number of rows in input matrix
- * @param csize: number of columns in input matrix
- * @param k: number of clusters/factors //IS THIS THE SAME K AS IN THE COMMAND LINE???
- * @return The initialized H matrix, or NULL on failure
- */
-double** matrix_init_H(double** matrix, int rsize, int csize, int k) {
-    int i, j;
-    double avg, upper_bound;
-    double** H = NULL;
-    
-    // Allocate memory for H matrix (N x k)
-    H = matrix_malloc(rsize, k);
-    if (H == NULL) {
-        fprintf(stderr, "An Error Has Occured");
-        return NULL;
-    }
-    
-    // Calculate average using matrix_avg function
-    avg = matrix_avg(matrix, rsize, csize);
-    
-    // Calculate upper bound for random values
-    upper_bound = 2.0 * sqrt(avg / k);
-    
-    // Seed random number generator (call once) //DO IT IN THE PYTHON PART???
-    srand(time(NULL));
-    
-    // Populate H with random values in [0, upper_bound]
-    for (i = 0; i < rsize; i++) {
-        for (j = 0; j < k; j++) {
-            H[i][j] = ((double)rand() / RAND_MAX) * upper_bound;
-        }
-    }
-    return H;
-}
-
-
-
-
 // MISSING SOME CODE OF UPDATE H FUNCTION AND SYMNMF FUNCTION
 
+char* duplicateString(char* src)
+{
+    char* str;
+    char* p;
+    int len = 0;
 
-
-
-
-char* dup_string(char* str) //WE WERE NOT ALLWOED TO USE strpcpy?
- {
-    char* str_copy = malloc(strlen(str) + 1);
-    if(str_copy == NULL) {
-        fprintf(stderr, "An Error Has Occured");
+    if(src == NULL)
+    {
+        printf("An error has occured");
         return NULL;
     }
-        strcpy(str_copy, str);
-    return str_copy;
+    
+    while (src[len])
+        len++;
+    str = malloc(len + 1);
+    p = str;
+    while (*src)
+        *p++ = *src++;
+    *p = '\0';
+    return str;
 }
+
 
 
 double** read_vectors_from_file(const char* filename, int* out_rsize, int* out_csize) {
@@ -477,3 +424,4 @@ double** read_vectors_from_file(const char* filename, int* out_rsize, int* out_c
     *out_rsize = rsize;
     *out_csize = csize;
     return matrix;
+}
