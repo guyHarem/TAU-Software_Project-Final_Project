@@ -5,6 +5,7 @@
 #define MAXLINE 1024 // Define max line length for the buffer size
 #define EPSILON 1e-4 // Define a small epsilon value for convergence checks
 #define MAX_ITER 300 // Define maximum number of iterations for convergence
+#define BETA 0.5 // Define beta parameter for update rule
 
 
 // Global variables to hold the number of vectors and their dimension
@@ -337,40 +338,138 @@ double frobenius_norm(double** matrix, int rsize, int csize, int is_squared)
     return is_squared ? sum : sqrt(sum);
 }
 
-
 /**
- * Checks convergence between two matrices based on relative Frobenius norm difference
- * @param matrix_a: first input matrix
- * @param matrix_b: second input matrix
+ * Checks convergence between two matrices based on Frobenius norm difference
+ * Convergence rule: ||H^(t+1) - H^(t)||²_F < ε
+ * @param matrix_a: current iteration matrix H^(t+1)
+ * @param matrix_b: previous iteration matrix H^(t)
  * @param rsize: number of rows in both matrices
  * @param csize: number of columns in both matrices
- * @param EPSILON: convergence threshold
- * @return 1 if converged, 0 otherwise
+ * @return 1 if converged (norm_diff < EPSILON), 0 otherwise
  */
-double matrix_convergence(double** matrix_a, double** matrix_b, int rsize, int csize)
+int matrix_convergence(double** matrix_a, double** matrix_b, int rsize, int csize)
 {
-    double norm_diff = frobenius_norm(matrix_subtract(matrix_a, matrix_b, rsize, csize), rsize, csize, 0);
-    double norm_a = frobenius_norm(matrix_a, rsize, csize, 0);
-    if (norm_a == 0) {
-        return norm_diff < EPSILON; // Avoid division by zero
+    double** diff_matrix = matrix_subtract(matrix_a, matrix_b, rsize, csize);
+    if (diff_matrix == NULL) {
+        return 0; // Error case - assume not converged
     }
-    return (norm_diff / norm_a) < EPSILON;
+    
+    double norm_diff_squared = frobenius_norm(diff_matrix, rsize, csize, 1); // Use squared norm
+    matrix_free(diff_matrix, rsize);
+    
+    return norm_diff_squared < EPSILON;
 }
 
-// double matrix_convergence(double** matrix1, double** matrix2, int n, int m)
-// {
-//     double** result_matrix = matrix_substraction(matrix1, matrix2, n, m);
-//     double norm = forbius_norm(result_matrix, n, m, 1);
-//     matrix_free(result_matrix, n);
+
+
+
+double** update_H(double** W, double** H, int N, int k)
+{
+    int i, j;
+    /* Allocate memory for the new H matrix */
+    double** H_new = matrix_malloc(N, k);
+    /* Compute numerator matrix: W * H */
+    double** num_matrix = matrix_multiply(W, H, N, N, k);
+    /* Compute H transpose for denominator calculation */
+    double** Ht = matrix_transpose(H, N, k);
+    /* Compute H^T * H (conditional allocation to prevent cascading failures) */
+    double** HtH = (Ht != NULL) ? matrix_multiply(Ht, H, k, N, k) : NULL;
+    /* Compute denominator matrix: H * (H^T * H) */
+    double** denom_matrix = (HtH != NULL) ? matrix_multiply(H, HtH, N, k, k) : NULL;
     
-//     return norm;
-// }
+    /* Check if any allocation failed */
+    if (H_new == NULL || num_matrix == NULL || Ht == NULL || HtH == NULL || denom_matrix == NULL) {
+        /* Clean up any successfully allocated matrices */
+        if (H_new) matrix_free(H_new, N);
+        if (num_matrix) matrix_free(num_matrix, N);
+        if (Ht) matrix_free(Ht, k);
+        if (HtH) matrix_free(HtH, k);
+        if (denom_matrix) matrix_free(denom_matrix, N);
+        fprintf(stderr, "An Error Has Occured");
+        return NULL;
+    }
+
+    /* Apply the SymNMF update formula: H_new = H * (1 - BETA + BETA * (num/denom)) */
+    for (i = 0; i < N; i++) {
+        for (j = 0; j < k; j++) {
+            if (denom_matrix[i][j] != 0) { /* Avoid division by zero */
+                /* Element-wise multiplication with update factor */
+                H_new[i][j] = H[i][j] * (1 - BETA + BETA * (num_matrix[i][j] / denom_matrix[i][j]));
+            } else {
+                H_new[i][j] = H[i][j]; /* Keep original value if denominator is zero */
+            }
+        }
+    }
+
+    /* Free all intermediate matrices */
+    matrix_free(num_matrix, N);
+    matrix_free(Ht, k);
+    matrix_free(HtH, k);
+    matrix_free(denom_matrix, N);
+
+    return H_new;
+}
+
+/** 
+ * Advances the previous H matrix to the new H matrix for the next iteration
+ * @param H_prev: previous H matrix (to be updated)
+ * @param H_new: new H matrix (source of updated values)
+ * @param N: number of rows in H
+ * @param k: number of columns in H
+*/
+void advance_H(double** H_prev, double** H_new, int N, int k)
+{
+    int i,j;
+    for(i=0;i<N;i++)
+    {
+        for(j=0;j<k;j++)
+        {
+            H_prev[i][j] = H_new[i][j];
+        }
+    }
+}
 
 
+/**
+ * Performs Symmetric Non-negative Matrix Factorization (SymNMF) on matrix W
+ * 
+ * Iteratively updates H using the multiplicative rule: H = H * (1 - β + β * (WH) / (H(H^T*H)))
+ * until convergence (||H_new - H||²_F < ε) or maximum iterations (MAX_ITER = 300) reached.
+ * The algorithm factorizes W ≈ H * H^T where H is the non-negative factor matrix.
+ * 
+ * @param W: input symmetric normalized similarity matrix (N x N)
+ * @param H: initial factor matrix (N x k) - modified in-place during iterations
+ * @param N: number of rows/columns in W and rows in H
+ * @param k: number of columns in H (number of clusters)
+ * @return The final factor matrix H after convergence, or NULL on failure
+ */
+double** matrix_symnmf(double** W, double** H, int N, int k)
+{
+    int iter;
+    double** H_new = NULL;
 
+    for(iter = 0; iter < MAX_ITER; iter++) {
+        H_new = update_H(W, H, N, k);
+        if (H_new == NULL) {
+            return NULL; // Error during update
+        }
 
-// MISSING SOME CODE OF UPDATE H FUNCTION AND SYMNMF FUNCTION
+        if (matrix_convergence(H_new, H, N, k)) {
+            break; // Converged
+        }
+        
+        advance_H(H, H_new, N, k);
+        matrix_free(H_new, N);
+        H_new = NULL; // Reset for next iteration
+    }
+    return H;
+}
 
+/**
+ * Duplicates a string by allocating new memory and copying the content
+ * @param src: source string to duplicate
+ * @return Pointer to the duplicated string, or NULL if allocation fails
+ */
 char* duplicateString(char* src)
 {
     char* str;
@@ -394,7 +493,13 @@ char* duplicateString(char* src)
 }
 
 
-
+/**
+ * Reads a matrix of doubles from a file
+ * @param filename: name of the input file
+ * @param out_rsize: pointer to store the number of rows read
+ * @param out_csize: pointer to store the number of columns read
+ * @return The allocated matrix, or NULL on failure
+ */
 double** read_vectors_from_file(const char* filename, int* out_rsize, int* out_csize) {
     FILE* file = fopen(filename, "r");
     if (file == NULL) {
