@@ -8,8 +8,8 @@
 #define BETA 0.5 // Define beta parameter for update rule
 
 
-// Global variables to hold the number of vectors and their dimension
-static int N_c, vectordim_c;  ///WHAT DOES THAT MEANS????
+// Global variables to hold the number of vectors and their dimension that were readed from file
+static int N_const, vectordim_const; 
 
 
 /**
@@ -175,7 +175,7 @@ double** matrix_subtract(double** matrix_a, double** matrix_b, int rsize, int cs
  * @param is_squared: if non-zero, returns squared distance; otherwise returns actual distance
  * @return The Euclidean distance as a double
  */
-double euc_dist(double* vec1, double* vec2, int vecdim, int is_squared) { //USE VECDIM_C INSTEAD OF PARAMETER
+double euc_dist(double* vec1, double* vec2, int vecdim, int is_squared) {
     double sum = 0.0;
     for(int i = 0; i < vecdim; i++) {
         double diff = vec1[i] - vec2[i];
@@ -190,12 +190,12 @@ double euc_dist(double* vec1, double* vec2, int vecdim, int is_squared) { //USE 
  * Creates a similarity matrix from data vectors using Gaussian kernel
  * If vectors are similar → high similarity value (close to 1)
  * If vectors are different → low similarity value (close to 0)
- * @param matrix: input data matrix (N_c x vectordim_c)
- * @param rsize: number of data points (N_c)
- * @param csize: dimension of each data point (vectordim_c)
+ * @param matrix: input data matrix
+ * @param rsize: number of data points
+ * @param csize: dimension of each data point
  * @return The allocated similarity matrix, or NULL on failure
  */
-double** matrix_sym(double** matrix, int rsize, int csize) //USE N_C AND VECDIM_C INSTEAD OF PARAMETERS
+double** matrix_sym(double** matrix, int rsize, int csize)
 {
     int i, j;
     double value;
@@ -492,41 +492,115 @@ char* duplicateString(char* src)
     return str;
 }
 
-
 /**
- * Reads a matrix of doubles from a file
- * @param filename: name of the input file
- * @param out_rsize: pointer to store the number of rows read
- * @param out_csize: pointer to store the number of columns read
- * @return The allocated matrix, or NULL on failure
+ * Reads vectors from a file and stores them in a dynamically allocated 2D array (matrix)
+ * Each line in the file represents a vector, with elements separated by spaces.
+ * The function also sets the global variables N_const and vectordim_const to the number of vectors
+ * and their dimension, respectively.
+ * @param filename: path to the input file
+ * @return Pointer to the allocated 2D matrix of doubles, or NULL on failure
  */
-double** read_vectors_from_file(const char* filename, int* out_rsize, int* out_csize) {
+double** read_vectors_from_file(const char* filename) {
+    char line[MAXLINE];
+    char* token;
+    int rsize = 0;
+    int csize = -1; // Initialize csize to -1 to detect first line
+    int i, j;
+    double** matrix = NULL;
+
     FILE* file = fopen(filename, "r");
     if (file == NULL) {
         fprintf(stderr, "An Error Has Occured");
         return NULL;
-    } 
-    char line[MAXLINE];
-    int rsize = 0;
-    int csize = -1;
-    double** matrix = NULL;
+    }
+
+    // First pass: determine rsize and csize
     while (fgets(line, sizeof(line), file)) {
-        char* token;                                        
-        int col = 0;
+        int temp_csize = 0;
         token = strtok(line, " ");
         while (token != NULL) {
-            double value = atof(token);
-            if (csize == -1) {
-                csize = 1;
-            } else {
-                csize++;
-            }
+            temp_csize++;
             token = strtok(NULL, " ");
+        }
+        if (csize == -1) {
+            csize = temp_csize; // Set csize based on the first line
+        } else if (temp_csize != csize) {
+            fprintf(stderr, "An Error Has Occured"); // Inconsistent column count
+            fclose(file);
+            return NULL;
         }
         rsize++;
     }
+
+    // Allocate memory for the matrix
+    matrix = matrix_malloc(rsize, csize);
+    if (matrix == NULL) {
+        fclose(file);
+        return NULL;
+    }
+
+    // Second pass: read the actual data
+    rewind(file);
+    i = 0;
+    while (fgets(line, sizeof(line), file) && i < rsize) {
+        j = 0;
+        token = strtok(line, " ");
+        while (token != NULL && j < csize) {
+            matrix[i][j] = atof(token);
+            j++;
+            token = strtok(NULL, " ");
+        }
+        i++;
+    }
+
     fclose(file);
-    *out_rsize = rsize;
-    *out_csize = csize;
+    
+    // Set the static global variables
+    N_const = rsize;
+    vectordim_const = csize;
+    
     return matrix;
+}
+
+
+int main(int argc, char* argv[])
+{
+    if(argc != 3) 
+    {
+        fprintf(stderr, "An Error Has Occured");
+        return 1;
+    }
+
+    char* goal = duplicateString(argv[1]);
+    double** data_matrix = read_vectors_from_file(argv[2]);
+
+    (void)argc; // Unused parameter
+
+    if(data_matrix == NULL || goal == NULL) 
+    {
+        free(goal);
+        matrix_free(data_matrix, N_const);
+        fprintf(stderr,"An Error Has Occured");
+        return 1;
+    }
+
+    double** goal_matrix = NULL;
+
+        if(!strcmp(goal,"sym"))
+    {
+        goal_matrix = matrix_sym(data_matrix, N_const, vectordim_const);
+    }
+    else if(!strcmp(goal,"ddg"))
+    {
+        goal_matrix = matrix_ddg(data_matrix, N_const, vectordim_const);
+    }
+    else if(!strcmp(goal,"norm"))
+    {
+        goal_matrix = matrix_norm(data_matrix, N_const, vectordim_const);
+    }
+    print_matrix(goal_matrix, N_const, N_const);
+    matrix_free(goal_matrix, N_const);
+    matrix_free(data_matrix, N_const);
+    free(goal);
+    return 0;
 }
