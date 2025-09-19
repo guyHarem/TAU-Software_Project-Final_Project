@@ -586,7 +586,7 @@ int main(int argc, char* argv[])
 
     double** goal_matrix = NULL;
 
-        if(!strcmp(goal,"sym"))
+    if(!strcmp(goal,"sym"))
     {
         goal_matrix = matrix_sym(data_matrix, N_const, vectordim_const);
     }
