@@ -306,9 +306,9 @@ static PyObject* symnmf_module(PyObject* args)
  * C function pointers, argument types, and documentation strings.
  */
 static PyMethodDef SymNMFMethods[] = {
-    {"sym", (PyCFunction)sym_module, METH_VARARGS, "Compute the similarity matrix."},
-    {"ddg", (PyCFunction)ddg_module, METH_VARARGS, "Compute the diagonal degree matrix."},
-    {"norm", (PyCFunction)norm_module, METH_VARARGS, "Compute the normalized similarity matrix."},
+    {"matrix_sym", (PyCFunction)sym_module, METH_VARARGS, "Compute the similarity matrix."},
+    {"matrix_ddg", (PyCFunction)ddg_module, METH_VARARGS, "Compute the diagonal degree matrix."},
+    {"matrix_norm", (PyCFunction)norm_module, METH_VARARGS, "Compute the normalized similarity matrix."},
     {"symnmf", (PyCFunction)symnmf_module, METH_VARARGS, "Perform SymNMF factorization."},
     {NULL, NULL, 0, NULL} // Sentinel
 };
