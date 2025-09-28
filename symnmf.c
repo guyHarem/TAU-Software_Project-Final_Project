@@ -64,7 +64,7 @@ double** matrix_malloc(int rsize, int csize)
     
     /* Validate input parameters */
     if (rsize <= 0 || csize <= 0) {
-        fprintf(stderr, "An Error Has Occured", rsize, csize);
+        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
     
@@ -79,7 +79,7 @@ double** matrix_malloc(int rsize, int csize)
     for (i = 0; i < rsize; i++) {
         matrix[i] = (double*)malloc(csize * sizeof(double));
         if (matrix[i] == NULL) {
-            fprintf(stderr, "An Error Has Occured", i);
+            fprintf(stderr, "An Error Has Occured");
             /* Free previously allocated rows */
             matrix_free(matrix, i);
             return NULL;
@@ -172,22 +172,21 @@ double** matrix_subtract(double** matrix_a, double** matrix_b, int rsize, int cs
  * @param vec1: first input vector
  * @param vec2: second input vector
  * @param vecdim: dimension of both vectors
- * @param is_squared: if non-zero, returns squared distance; otherwise returns actual distance
  * @return The Euclidean distance as a double
  */
-double euc_dist(double* vec1, double* vec2, int vecdim, int is_squared) {
+double euc_dist(double* vec1, double* vec2, int vecdim) {
     double sum = 0.0;
     for(int i = 0; i < vecdim; i++) {
         double diff = vec1[i] - vec2[i];
         sum += diff * diff;
     }
-    return is_squared ? sum : sqrt(sum); //WHY WE NEED THIS???
+    return sqrt(sum);
 }
 
 
 
 /**
- * Creates a similarity matrix from data vectors using Gaussian kernel
+ * Creates a similarity matrix from input vectors using Gaussian kernel
  * If vectors are similar → high similarity value (close to 1)
  * If vectors are different → low similarity value (close to 0)
  * @param matrix: input data matrix
@@ -215,7 +214,7 @@ double** matrix_sym(double** matrix, int rsize, int csize)
                 sym_matrix[i][j] = 0;  /* Diagonal elements set to 0 */
             }
             else {
-                value = euc_dist(matrix[i], matrix[j], csize, 1);  /* Squared Euclidean distance */
+                value = euc_dist(matrix[i], matrix[j], csize);  /* Squared Euclidean distance */
                 value = exp(-value / 2);  /* Gaussian similarity */
                 
                 sym_matrix[i][j] = value;
@@ -229,15 +228,23 @@ double** matrix_sym(double** matrix, int rsize, int csize)
 
 
 /**
- * Computes the Degree Diagonal Matrix (DDG) for a given matrix //MAKE SURE TO USE MATRIX_SYM BEFORE USING THIS FUNCTION
+ * Computes the Degree Diagonal Matrix (DDG) for a given matrrix
  * @param matrix: input matrix
  * @param rsize: number of rows in the matrix
  * @param csize: number of columns in the matrix
  * @return The allocated DDG matrix, or NULL on failure
  */
 double** matrix_ddg(double** matrix, int rsize, int csize) {
+
     int i, j;
     double sum;
+
+    double** sym_matrix = matrix_sym(matrix, rsize, csize); //calculating similarity matrix first
+    if(sym_matrix == NULL) {
+        fprintf(stderr, "An Error Has Occured");
+        return NULL;
+    }
+    
     double** ddg_matrix = matrix_malloc(rsize, rsize);
     if(ddg_matrix == NULL) {
         fprintf(stderr, "An Error Has Occured");
@@ -247,12 +254,14 @@ double** matrix_ddg(double** matrix, int rsize, int csize) {
     for(i = 0; i < rsize; i++) {
         sum = 0.0;
         for(j = 0; j < csize; j++) {
-            sum += matrix[i][j];
+            sum += sym_matrix[i][j];
         }
         for(j = 0; j < rsize; j++) {
             ddg_matrix[i][j] = (i == j) ? sum : 0.0; // Diagonal matrix
         }
     }
+
+    matrix_free(sym_matrix, rsize); // Free the intermediate similarity matrix
     return ddg_matrix;
 }
 
@@ -305,17 +314,29 @@ double** matrix_norm(double** matrix, int rsize, int csize) {
         return NULL;
     }
     
-    double** temp = matrix_multiply(D_inv_sqrt, A, rsize, rsize, rsize);
-    double** W = NULL;
-    if (temp != NULL) {
-        W = matrix_multiply(temp, D_inv_sqrt, rsize, rsize, rsize);
-        matrix_free(temp, rsize);
+    double** temp = matrix_multiply(D_inv_sqrt, A, rsize, rsize, rsize); // D^(-1/2) * A
+    if (temp == NULL) {
+        matrix_free(A, rsize);
+        matrix_free(D, rsize);
+        matrix_free(D_inv_sqrt, rsize);
+        return NULL;
     }
-    
+
+    double** W = NULL;
+    W = matrix_multiply(temp, D_inv_sqrt, rsize, rsize, rsize); // (D^(-1/2) * A) * D^(-1/2)
+    if (W == NULL) {
+        matrix_free(A, rsize);
+        matrix_free(D, rsize);
+        matrix_free(D_inv_sqrt, rsize);
+        matrix_free(temp, rsize);
+        return NULL;
+    }
     // Clean up all intermediate matrices after computations
     matrix_free(A, rsize);
     matrix_free(D, rsize);
     matrix_free(D_inv_sqrt, rsize);
+    matrix_free(temp, rsize);
+
     return W;
 }
 
@@ -324,10 +345,9 @@ double** matrix_norm(double** matrix, int rsize, int csize) {
  * @param matrix: input matrix
  * @param rsize: number of rows
  * @param csize: number of columns
- * @param is_squared: if non-zero, returns squared Frobenius norm; otherwise returns actual Frobenius norm
  * @return The Frobenius norm as a double
  */
-double frobenius_norm(double** matrix, int rsize, int csize, int is_squared) 
+double frobenius_norm(double** matrix, int rsize, int csize) 
 {
     double sum = 0.0;
     for(int i = 0; i < rsize; i++) {
@@ -335,7 +355,7 @@ double frobenius_norm(double** matrix, int rsize, int csize, int is_squared)
             sum += matrix[i][j] * matrix[i][j];
         }
     }
-    return is_squared ? sum : sqrt(sum);
+    return sqrt(sum);
 }
 
 /**
@@ -354,10 +374,10 @@ int matrix_convergence(double** matrix_a, double** matrix_b, int rsize, int csiz
         return 0; // Error case - assume not converged
     }
     
-    double norm_diff_squared = frobenius_norm(diff_matrix, rsize, csize, 1); // Use squared norm
+    double norm_diff = frobenius_norm(diff_matrix, rsize, csize);
     matrix_free(diff_matrix, rsize);
-    
-    return norm_diff_squared < EPSILON;
+
+    return norm_diff < EPSILON;
 }
 
 
@@ -451,6 +471,7 @@ double** matrix_symnmf(double** W, double** H, int N, int k)
     for(iter = 0; iter < MAX_ITER; iter++) {
         H_new = update_H(W, H, N, k);
         if (H_new == NULL) {
+            fprintf(stderr, "An Error Has Occured");
             return NULL; // Error during update
         }
 
@@ -598,7 +619,7 @@ int main(int argc, char* argv[])
     {
         goal_matrix = matrix_norm(data_matrix, N_const, vectordim_const);
     }
-    print_matrix(goal_matrix, N_const, N_const);
+    matrix_print(goal_matrix, N_const, N_const);
     matrix_free(goal_matrix, N_const);
     matrix_free(data_matrix, N_const);
     free(goal);

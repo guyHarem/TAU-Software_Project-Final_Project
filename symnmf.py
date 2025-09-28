@@ -41,7 +41,7 @@ def doSymNMF(vectors, k):
 
 def main():
     try:
-        input_data = sys.argv # WHY NOT COMMAND LINE ARGUMENTS?
+        input_data = sys.argv
         k, goal, input_file = int(input_data[1]), input_data[2], input_data[3]
 
         vectors = pd.read_csv(input_file, header=None).values.tolist() # Read the input file and convert it to a list of lists
