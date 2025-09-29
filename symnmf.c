@@ -2,13 +2,13 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-#define MAXLINE 1024 // Define max line length for the buffer size
-#define EPSILON 1e-4 // Define a small epsilon value for convergence checks
-#define MAX_ITER 300 // Define maximum number of iterations for convergence
-#define BETA 0.5 // Define beta parameter for update rule
+#define MAXLINE 1024 /* Define max line length for the buffer size */
+#define EPSILON 1e-4 /* Define a small epsilon value for convergence checks */
+#define MAX_ITER 300 /* Define maximum number of iterations for convergence */
+#define BETA 0.5 /* Define beta parameter for update rule */
 
 
-// Global variables to hold the number of vectors and their dimension that were readed from file
+/* Global variables to hold the number of vectors and their dimension that were readed from file */
 static int N_const, vectordim_const; 
 
 
@@ -42,7 +42,8 @@ void matrix_print(double** matrix, int rsize, int csize)
  */
 void matrix_free(double** matrix, int rsize)
 {
-    for(int i = 0; i < rsize; i++) {
+    int i;
+    for(i = 0; i < rsize; i++) {
         free(matrix[i]);
     }
     free(matrix);
@@ -103,7 +104,7 @@ double** matrix_multiply(double** matrix_a, double** matrix_b, int a_rsize, int 
     int i, j, k;
     double** matrix_r = matrix_malloc(a_rsize, b_csize);
     if(matrix_r == NULL) {
-        fprintf(stderr, "An Error Has Occured"); // memory allocation failed
+        fprintf(stderr, "An Error Has Occured"); /* memory allocation failed */
         return NULL;
     }
     
@@ -175,8 +176,9 @@ double** matrix_subtract(double** matrix_a, double** matrix_b, int rsize, int cs
  * @return The Euclidean distance as a double
  */
 double euc_dist(double* vec1, double* vec2, int vecdim) {
+    int i;
     double sum = 0.0;
-    for(int i = 0; i < vecdim; i++) {
+    for(i = 0; i < vecdim; i++) {
         double diff = vec1[i] - vec2[i];
         sum += diff * diff;
     }
@@ -238,14 +240,16 @@ double** matrix_ddg(double** matrix, int rsize, int csize) {
 
     int i, j;
     double sum;
+    double** sym_matrix = NULL;
+    double** ddg_matrix = NULL;
 
-    double** sym_matrix = matrix_sym(matrix, rsize, csize); //calculating similarity matrix first
+    sym_matrix = matrix_sym(matrix, rsize, csize); /* calculating similarity matrix first */
     if(sym_matrix == NULL) {
         fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
-    
-    double** ddg_matrix = matrix_malloc(rsize, rsize);
+
+    ddg_matrix = matrix_malloc(rsize, rsize);
     if(ddg_matrix == NULL) {
         fprintf(stderr, "An Error Has Occured");
         return NULL;
@@ -257,11 +261,11 @@ double** matrix_ddg(double** matrix, int rsize, int csize) {
             sum += sym_matrix[i][j];
         }
         for(j = 0; j < rsize; j++) {
-            ddg_matrix[i][j] = (i == j) ? sum : 0.0; // Diagonal matrix
+            ddg_matrix[i][j] = (i == j) ? sum : 0.0; /* Diagonal matrix */
         }
     }
 
-    matrix_free(sym_matrix, rsize); // Free the intermediate similarity matrix
+    matrix_free(sym_matrix, rsize); /* Free the intermediate similarity matrix */
     return ddg_matrix;
 }
 
@@ -274,7 +278,8 @@ double** matrix_ddg(double** matrix, int rsize, int csize) {
  */
 double** matrix_inv_sqrt(double** D, int size) {
     int i, j;
-    double** D_inv_sqrt = matrix_malloc(size, size);
+    double** D_inv_sqrt = NULL;
+    D_inv_sqrt = matrix_malloc(size, size);
     if (D_inv_sqrt == NULL) return NULL;
     
     for (i = 0; i < size; i++) {
@@ -298,23 +303,30 @@ double** matrix_inv_sqrt(double** D, int size) {
  * @return The normalized similarity matrix W, or NULL on failure
  */
 double** matrix_norm(double** matrix, int rsize, int csize) {
-    double** A = matrix_sym(matrix, rsize, csize);
+
+    double** A = NULL;
+    double** D = NULL;
+    double** D_inv_sqrt = NULL;
+    double** temp = NULL;
+    double** W = NULL;
+
+    A = matrix_sym(matrix, rsize, csize);
     if (A == NULL) return NULL;
-    
-    double** D = matrix_ddg(A, rsize, rsize);
+
+    D = matrix_ddg(A, rsize, rsize);
     if (D == NULL) {
         matrix_free(A, rsize);
         return NULL;
     }
 
-    double** D_inv_sqrt = matrix_inv_sqrt(D, rsize);
+    D_inv_sqrt = matrix_inv_sqrt(D, rsize);
     if (D_inv_sqrt == NULL) {
         matrix_free(A, rsize);
         matrix_free(D, rsize);
         return NULL;
     }
-    
-    double** temp = matrix_multiply(D_inv_sqrt, A, rsize, rsize, rsize); // D^(-1/2) * A
+
+    temp = matrix_multiply(D_inv_sqrt, A, rsize, rsize, rsize); /* D^(-1/2) * A */
     if (temp == NULL) {
         matrix_free(A, rsize);
         matrix_free(D, rsize);
@@ -322,8 +334,7 @@ double** matrix_norm(double** matrix, int rsize, int csize) {
         return NULL;
     }
 
-    double** W = NULL;
-    W = matrix_multiply(temp, D_inv_sqrt, rsize, rsize, rsize); // (D^(-1/2) * A) * D^(-1/2)
+    W = matrix_multiply(temp, D_inv_sqrt, rsize, rsize, rsize); /* (D^(-1/2) * A) * D^(-1/2) */
     if (W == NULL) {
         matrix_free(A, rsize);
         matrix_free(D, rsize);
@@ -331,7 +342,7 @@ double** matrix_norm(double** matrix, int rsize, int csize) {
         matrix_free(temp, rsize);
         return NULL;
     }
-    // Clean up all intermediate matrices after computations
+    /* Clean up all intermediate matrices after computations */
     matrix_free(A, rsize);
     matrix_free(D, rsize);
     matrix_free(D_inv_sqrt, rsize);
@@ -349,9 +360,10 @@ double** matrix_norm(double** matrix, int rsize, int csize) {
  */
 double frobenius_norm(double** matrix, int rsize, int csize) 
 {
+    int i, j;
     double sum = 0.0;
-    for(int i = 0; i < rsize; i++) {
-        for(int j = 0; j < csize; j++) {
+    for(i = 0; i < rsize; i++) {
+        for(j = 0; j < csize; j++) {
             sum += matrix[i][j] * matrix[i][j];
         }
     }
@@ -369,12 +381,15 @@ double frobenius_norm(double** matrix, int rsize, int csize)
  */
 int matrix_convergence(double** matrix_a, double** matrix_b, int rsize, int csize)
 {
-    double** diff_matrix = matrix_subtract(matrix_a, matrix_b, rsize, csize);
+    double** diff_matrix = NULL;
+    double norm_diff = 0.0;
+
+    diff_matrix = matrix_subtract(matrix_a, matrix_b, rsize, csize);
     if (diff_matrix == NULL) {
-        return 0; // Error case - assume not converged
+        return 0; /* Error case - assume not converged */
     }
-    
-    double norm_diff = frobenius_norm(diff_matrix, rsize, csize);
+
+    norm_diff = frobenius_norm(diff_matrix, rsize, csize);
     matrix_free(diff_matrix, rsize);
 
     return norm_diff < EPSILON;
@@ -472,16 +487,16 @@ double** matrix_symnmf(double** W, double** H, int N, int k)
         H_new = update_H(W, H, N, k);
         if (H_new == NULL) {
             fprintf(stderr, "An Error Has Occured");
-            return NULL; // Error during update
+            return NULL; /* Error during update */
         }
 
         if (matrix_convergence(H_new, H, N, k)) {
-            break; // Converged
+            break; /* Converged */
         }
         
         advance_H(H, H_new, N, k);
         matrix_free(H_new, N);
-        H_new = NULL; // Reset for next iteration
+        H_new = NULL; /* Reset for next iteration */
     }
     return H;
 }
@@ -525,7 +540,7 @@ double** read_vectors_from_file(const char* filename) {
     char line[MAXLINE];
     char* token;
     int rsize = 0;
-    int csize = -1; // Initialize csize to -1 to detect first line
+    int csize = -1; /* Initialize csize to -1 to detect first line */
     int i, j;
     double** matrix = NULL;
 
@@ -535,7 +550,7 @@ double** read_vectors_from_file(const char* filename) {
         return NULL;
     }
 
-    // First pass: determine rsize and csize
+    /* First pass: determine rsize and csize */
     while (fgets(line, sizeof(line), file)) {
         int temp_csize = 0;
         token = strtok(line, " ");
@@ -544,23 +559,23 @@ double** read_vectors_from_file(const char* filename) {
             token = strtok(NULL, " ");
         }
         if (csize == -1) {
-            csize = temp_csize; // Set csize based on the first line
+            csize = temp_csize; /* Set csize based on the first line */
         } else if (temp_csize != csize) {
-            fprintf(stderr, "An Error Has Occured"); // Inconsistent column count
+            fprintf(stderr, "An Error Has Occured"); /* Inconsistent column count */
             fclose(file);
             return NULL;
         }
         rsize++;
     }
 
-    // Allocate memory for the matrix
+    /* Allocate memory for the matrix */
     matrix = matrix_malloc(rsize, csize);
     if (matrix == NULL) {
         fclose(file);
         return NULL;
     }
 
-    // Second pass: read the actual data
+    /* Second pass: read the actual data */
     rewind(file);
     i = 0;
     while (fgets(line, sizeof(line), file) && i < rsize) {
@@ -575,8 +590,8 @@ double** read_vectors_from_file(const char* filename) {
     }
 
     fclose(file);
-    
-    // Set the static global variables
+
+    /* Set the static global variables */
     N_const = rsize;
     vectordim_const = csize;
     
@@ -586,16 +601,18 @@ double** read_vectors_from_file(const char* filename) {
 
 int main(int argc, char* argv[])
 {
+    char* goal;
+    double** data_matrix = NULL;
+    double** goal_matrix = NULL;
     if(argc != 3) 
     {
         fprintf(stderr, "An Error Has Occured");
         return 1;
     }
+    goal = duplicateString(argv[1]);
+    data_matrix = read_vectors_from_file(argv[2]);
 
-    char* goal = duplicateString(argv[1]);
-    double** data_matrix = read_vectors_from_file(argv[2]);
-
-    (void)argc; // Unused parameter
+    (void)argc;
 
     if(data_matrix == NULL || goal == NULL) 
     {
@@ -604,8 +621,6 @@ int main(int argc, char* argv[])
         fprintf(stderr,"An Error Has Occured");
         return 1;
     }
-
-    double** goal_matrix = NULL;
 
     if(!strcmp(goal,"sym"))
     {

@@ -91,10 +91,10 @@ double** conv_pyvectors_to_carr(PyObject* args)
     N = PyList_Size(vec_arr_obj);
     if (N <= 0) {
         fprintf(stderr, "An Error Has Occured");
-        return NULL;    
-    vectordim = PyList_Size(PyList_GetItem(vec_arr_obj, 0));
-    }
+        return NULL;
+    }   
 
+    vectordim = PyList_Size(PyList_GetItem(vec_arr_obj, 0));
     if (vectordim <= 0) {
         fprintf(stderr, "An Error Has Occured");
         return NULL;

@@ -1,0 +1,28 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: SymNMF sym",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/symnmf.py",
+            "args": ["3", "sym", "tests/input_1.txt"],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Python: SymNMF DDG",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/symnmf.py",
+            "args": ["3", "ddg", "tests/input_1.txt"],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
