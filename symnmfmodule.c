@@ -5,7 +5,7 @@
 #include "symnmf.h"
 
 
-static int N, vectordim, k; ///WHAT DOES THAT MEANS????
+static int N, vectordim, k;
 
 /**
  * Converts a Python list of lists (2D list) to a C 2D array (matrix)
@@ -78,7 +78,7 @@ PyObject* conv_carr_to_pylist(double** carr, int rsize, int csize)
  * @param args: Python tuple containing a single argument - the Python list of vectors
  * @return Pointer to the allocated and filled C 2D array, or NULL on failure
  */
-double** conv_pyvectors_to_carr(PyObject* args)
+double** conv_pyvectors_to_carr(PyObject* self, PyObject* args)
 {
     PyObject* vec_arr_obj;
     double** carr = NULL;
@@ -100,7 +100,7 @@ double** conv_pyvectors_to_carr(PyObject* args)
         return NULL;
     }
 
-    carr = matrix_malloc(carr, N, vectordim);
+    carr = matrix_malloc(N, vectordim);
     if (carr == NULL) {
         fprintf(stderr, "An Error Has Occured");
         return NULL;
@@ -122,9 +122,9 @@ double** conv_pyvectors_to_carr(PyObject* args)
  * @param args: Python tuple containing a single argument - the Python list of vectors
  * @return Pointer to the resulting Python list of lists (similarity matrix), or NULL on failure
  */
-static PyObject* sym_module(PyObject* args)
+static PyObject* sym_module(PyObject* self, PyObject* args)
 {
-    double** matrix = conv_pyvectors_to_carr(args);
+    double** matrix = conv_pyvectors_to_carr(self, args);
     if (matrix == NULL) {
     fprintf(stderr, "An Error Has Occured");
     return NULL;
@@ -149,7 +149,7 @@ static PyObject* sym_module(PyObject* args)
 
 
 
-/**
+ /**
  * Python wrapper for the matrix_ddg function
  * This function serves as a bridge between Python and C, allowing Python code to call the
  * matrix_ddg function defined in symnmf.h. It handles the conversion of input arguments
@@ -159,9 +159,9 @@ static PyObject* sym_module(PyObject* args)
  * @return Pointer to the resulting Python list of lists (diagonal degree matrix), or NULL on failure
  */
 
-static PyObject* ddg_module(PyObject* args)
+static PyObject* ddg_module(PyObject* self, PyObject* args)
 {
-    double** matrix = conv_pyvectors_to_carr(args);
+    double** matrix = conv_pyvectors_to_carr(self, args);
     if (matrix == NULL) {
     fprintf(stderr, "An Error Has Occured");
     return NULL;
@@ -193,9 +193,9 @@ static PyObject* ddg_module(PyObject* args)
  * @param args: Python tuple containing a single argument - the Python list of vectors
  * @return Pointer to the resulting Python list of lists (normalized similarity matrix), or NULL on failure
  */
-static PyObject* norm_module(PyObject* args)
+static PyObject* norm_module(PyObject* self, PyObject* args)
 {
-    double** matrix = conv_pyvectors_to_carr(args);
+    double** matrix = conv_pyvectors_to_carr(self, args);
     if (matrix == NULL) {
     fprintf(stderr, "An Error Has Occured");
     return NULL;
@@ -228,7 +228,7 @@ static PyObject* norm_module(PyObject* args)
  * @param args: Python tuple containing three arguments - W matrix, H matrix, and integer k
  * @return Pointer to the resulting C 2D array (factor matrix H), or NULL on failure
  */
-double** conv_symnmf(PyObject* args)
+double** conv_symnmf(PyObject* self, PyObject* args)
 {
     PyObject* matrix_W_obj;
     PyObject* matrix_H_obj;
@@ -246,12 +246,12 @@ double** conv_symnmf(PyObject* args)
         return NULL;
     }
 
-    matrix_W = matrix_malloc(matrix_W, N, N);
+    matrix_W = matrix_malloc(N, N);
     if (matrix_W == NULL) {
         fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
-    matrix_H = matrix_malloc(matrix_H, N, k);
+    matrix_H = matrix_malloc(N, k);
     if (matrix_H == NULL) {
         matrix_free(matrix_W, N);
         fprintf(stderr, "An Error Has Occured");
@@ -262,12 +262,15 @@ double** conv_symnmf(PyObject* args)
     matrix_H = conv_pylist_to_carr(matrix_H_obj, matrix_H, N, k);
 
     double** result_H = matrix_symnmf(matrix_W, matrix_H, N, k);
-    matrix_free(matrix_W, N);
-    matrix_free(matrix_H, N);
     if (result_H == NULL) {
+        matrix_free(matrix_W, N);
+        matrix_free(matrix_H, N);  
         fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
+
+    matrix_free(matrix_W, N);
+    matrix_free(matrix_H, N);
 
     return result_H;
 }
@@ -281,9 +284,9 @@ double** conv_symnmf(PyObject* args)
  * @param args: Python tuple containing three arguments - W matrix, H matrix, and integer k
  * @return Pointer to the resulting Python list of lists (factor matrix H), or NULL on failure
  */
-static PyObject* symnmf_module(PyObject* args)
+static PyObject* symnmf_module(PyObject* self, PyObject* args)
 {
-    double** result_H = conv_symnmf(args);
+    double** result_H = conv_symnmf(self, args);
     if (result_H == NULL) {
         fprintf(stderr, "An Error Has Occured");
         return NULL;
@@ -306,21 +309,21 @@ static PyObject* symnmf_module(PyObject* args)
  * C function pointers, argument types, and documentation strings.
  */
 static PyMethodDef SymNMFMethods[] = {
-    {"matrix_sym", (PyCFunction)sym_module, METH_VARARGS, "Compute the similarity matrix."},
-    {"matrix_ddg", (PyCFunction)ddg_module, METH_VARARGS, "Compute the diagonal degree matrix."},
-    {"matrix_norm", (PyCFunction)norm_module, METH_VARARGS, "Compute the normalized similarity matrix."},
-    {"symnmf", (PyCFunction)symnmf_module, METH_VARARGS, "Perform SymNMF factorization."},
-    {NULL, NULL, 0, NULL} // Sentinel
+    {"matrix_sym", (PyCFunction)sym_module, METH_VARARGS, PyDoc_STR("Compute the similarity matrix.")},
+    {"matrix_ddg", (PyCFunction)ddg_module, METH_VARARGS, PyDoc_STR("Compute the diagonal degree matrix.")},
+    {"matrix_norm", (PyCFunction)norm_module, METH_VARARGS, PyDoc_STR("Compute the normalized similarity matrix.")},
+    {"matrix_symnmf", (PyCFunction)symnmf_module, METH_VARARGS, PyDoc_STR("Perform SymNMF factorization.")},
+    {NULL, NULL, 0, NULL} /* Sentinel - marks the end of the array */
 };
 
 
 static struct PyModuleDef symnmfmodule = {
     PyModuleDef_HEAD_INIT,
-    "mysymnmfsp",   // name of module
-    NULL, // module documentation, may be NULL
-    -1,       // size of per-interpreter state of the module,
-              // or -1 if the module keeps state in global variables.
-    SymNMFMethods
+    "mysymnmfsp",   /* name of module */
+    NULL, /* module documentation, may be NULL */
+    -1,       /* size of per-interpreter state of the module,
+               or -1 if the module keeps state in global variables. */
+    SymNMFMethods /* the PyMethodDef array defined above */
 };
 
 PyMODINIT_FUNC PyInit_mysymnmfsp(void)

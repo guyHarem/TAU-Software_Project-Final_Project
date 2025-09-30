@@ -44,11 +44,11 @@ def main():
         input_data = sys.argv
         k, goal, input_file = int(input_data[1]), input_data[2], input_data[3]
 
-        vectors = pd.read_csv(input_file, header=None).values.tolist() # Read the input file and convert it to a list of lists
+        vectors = pd.read_csv(input_file, header=None).values.tolist()
 
         match goal:
             case "sym":
-                matrix_goal = SymNMF.matrix_sym(vectors) # Calling matrix_sym function in C to calculate the matrix
+                matrix_goal = SymNMF.matrix_sym(vectors)
             case "ddg":
                 matrix_goal = SymNMF.matrix_ddg(vectors) # Calling matrix_ddg function in C to calculate the matrix
             case "norm":
@@ -61,7 +61,7 @@ def main():
                 
         # print matrix_goal until 4 decimal points
         for row in matrix_goal:
-            print(','.join(format(x, ".4f") for x in row)) ## WHY YOU NEED IT IF YOU DOT IT IN C?
+            print(','.join(format(x, ".4f") for x in row))
 
     except Exception:
         print("An Error Has Occurred")
