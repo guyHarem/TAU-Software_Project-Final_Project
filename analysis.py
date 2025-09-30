@@ -85,9 +85,8 @@ def main():
         print(f"K-means silhouette score: {kmeans_silhouette:.4f}")
         print(f"SymNMF silhouette score: {symnmf_silhouette:.4f}")
 
-    except Exception as e:
+    except Exception:
         print("An Error Has Occurred")
-        return
     
 if __name__ == "__main__":
     main()

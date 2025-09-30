@@ -56,10 +56,8 @@ def main():
             case "symnmf":
                 matrix_goal = doSymNMF(vectors, k) # Calling doSymNMF function to perform SymNMF
             case _:
-                print("An Error Has Occurred")
-                return
-                
-        # print matrix_goal until 4 decimal points
+                raise Exception()
+
         for row in matrix_goal:
             print(','.join(format(x, ".4f") for x in row))
 
