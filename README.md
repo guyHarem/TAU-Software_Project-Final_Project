@@ -10,6 +10,7 @@ This project also includes an analysis file used to compare the silhouette score
 - C compiler (gcc)
 - NumPy
 - Pandas
+- scikit-learn (for analysis)
 - make
 
 ### Build

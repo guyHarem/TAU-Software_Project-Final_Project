@@ -27,8 +27,6 @@ def findClosestCentroid(vector, centroids):
     return np.argmin(distances)
 
 
-
-
 def findKmeansLabels(vectors, k):
     """Finds K-means cluster labels for given vectors.
 
@@ -47,7 +45,6 @@ def findKmeansLabels(vectors, k):
         kmeans_labels[i] = findClosestCentroid(vectors[i], kmeans_matrix)  # Assign label based on closest centroid
         
     return kmeans_labels
-
 
 
 def findSymNMFLabels(vectors, k):
@@ -92,7 +89,6 @@ def main():
         print("An Error Has Occurred")
         return
     
-
 if __name__ == "__main__":
     main()
 
