@@ -354,42 +354,72 @@ int matrix_convergence(double** matrix_a, double** matrix_b, int rsize, int csiz
     norm_diff = frobenius_norm(diff_matrix, rsize, csize);
     matrix_free(diff_matrix, rsize);
 
-    return norm_diff < EPSILON;
+    return norm_diff < EPSILON; /* Return 1 if converged, 0 otherwise */
 }
 
 
-
-
+/** Updates the H matrix using the SymNMF multiplicative update rule
+ * H = H * (1 - β + β * (WH) / (H(H^T*H)))
+ * @param W: input symmetric normalized similarity matrix (N x N)
+ * @param H: current factor matrix (N x k)
+ * @param N: number of rows/columns in W and rows in H
+ * @param k: number of columns in H (number of clusters)
+ * @return The updated H matrix, or NULL on failure
+ **/
 double** update_H(double** W, double** H, int N, int k)
 {
     int i, j;
+    double** H_new = NULL;
+    double** num_matrix = NULL;
+    double** Ht = NULL;
+    double** HHt = NULL;
+    double** denom_matrix = NULL;
+
     /* Allocate memory for the new H matrix */
-    double** H_new = matrix_malloc(N, k);
-    /* Compute numerator matrix: W * H */
-    double** num_matrix = matrix_multiply(W, H, N, N, k);
-    /* Compute H transpose for denominator calculation */
-    double** Ht = matrix_transpose(H, N, k);
-    /* Compute H^T * H (conditional allocation to prevent cascading failures) */
-    double** HtH = (Ht != NULL) ? matrix_multiply(Ht, H, k, N, k) : NULL;
-    /* Compute denominator matrix: H * (H^T * H) */
-    double** denom_matrix = (HtH != NULL) ? matrix_multiply(H, HtH, N, k, k) : NULL;
+    H_new = matrix_malloc(N, k);
+    if(H_new == NULL)
+        return NULL; /* Memory allocation failed */
     
-    /* Check if any allocation failed */
-    if (H_new == NULL || num_matrix == NULL || Ht == NULL || HtH == NULL || denom_matrix == NULL) {
-        /* Clean up any successfully allocated matrices */
-        if (H_new) matrix_free(H_new, N);
-        if (num_matrix) matrix_free(num_matrix, N);
-        if (Ht) matrix_free(Ht, k);
-        if (HtH) matrix_free(HtH, k);
-        if (denom_matrix) matrix_free(denom_matrix, N);
-        fprintf(stderr, "An Error Has Occured");
-        return NULL;
+    /* Compute numerator matrix: W * H */
+    num_matrix = matrix_multiply(W, H, N, N, k);
+    if(num_matrix == NULL) {
+        matrix_free(H_new, N);
+        return NULL; /* Memory allocation failed */
+    }
+
+    /* Compute H transpose for denominator calculation */
+    Ht = matrix_transpose(H, N, k);
+    if(Ht == NULL) {
+        matrix_free(H_new, N);
+        matrix_free(num_matrix, N);
+        return NULL; /* Memory allocation failed */
+    }
+
+    /* Compute H * H^T */
+    HHt = matrix_multiply(H, Ht, N, k, N);
+    if(HHt == NULL) {
+        matrix_free(H_new, N);
+        matrix_free(num_matrix, N);
+        matrix_free(Ht, k);
+        return NULL; /* Memory allocation failed */
+    }
+
+    /* Compute denominator matrix: H * (H^T * H) */
+    denom_matrix = matrix_multiply(HHt, H, N, N, k);
+    if (denom_matrix == NULL) {
+        matrix_free(H_new, N);
+        matrix_free(num_matrix, N);
+        matrix_free(Ht, k);
+        matrix_free(HHt, k);
+        return NULL; /* Memory allocation failed */
     }
 
     /* Apply the SymNMF update formula: H_new = H * (1 - BETA + BETA * (num/denom)) */
     for (i = 0; i < N; i++) {
         for (j = 0; j < k; j++) {
+
             if (denom_matrix[i][j] != 0) { /* Avoid division by zero */
+
                 /* Element-wise multiplication with update factor */
                 H_new[i][j] = H[i][j] * (1 - BETA + BETA * (num_matrix[i][j] / denom_matrix[i][j]));
             } else {
@@ -401,7 +431,7 @@ double** update_H(double** W, double** H, int N, int k)
     /* Free all intermediate matrices */
     matrix_free(num_matrix, N);
     matrix_free(Ht, k);
-    matrix_free(HtH, k);
+    matrix_free(HHt, k);
     matrix_free(denom_matrix, N);
 
     return H_new;
@@ -411,17 +441,17 @@ double** update_H(double** W, double** H, int N, int k)
  * Advances the previous H matrix to the new H matrix for the next iteration
  * @param H_prev: previous H matrix (to be updated)
  * @param H_new: new H matrix (source of updated values)
- * @param N: number of rows in H
- * @param k: number of columns in H
+ * @param rsize: number of rows in H
+ * @param csize: number of columns in H
 */
-void advance_H(double** H_prev, double** H_new, int N, int k)
+void advance_H(double** H_prev, double** H_new, int rsize, int csize)
 {
     int i,j;
-    for(i=0;i<N;i++)
+    for(i=0;i<rsize;i++)
     {
-        for(j=0;j<k;j++)
+        for(j=0;j<csize;j++)
         {
-            H_prev[i][j] = H_new[i][j];
+            H_prev[i][j] = H_new[i][j]; /* Copy new values to previous matrix */
         }
     }
 }
@@ -448,19 +478,21 @@ double** matrix_symnmf(double** W, double** H, int N, int k)
     for(iter = 0; iter < MAX_ITER; iter++) {
         H_new = update_H(W, H, N, k);
         if (H_new == NULL) {
-            fprintf(stderr, "An Error Has Occured");
             return NULL; /* Error during update */
         }
 
         if (matrix_convergence(H_new, H, N, k)) {
-            break; /* Converged */
+            matrix_free(H, N);  // Free H^(t)
+            return H_new;       // Return H^(t+1) - this is correct!
         }
         
         advance_H(H, H_new, N, k);
         matrix_free(H_new, N);
-        H_new = NULL; /* Reset for next iteration */
+        H_new = NULL;
     }
-    return H;
+
+    // If max iterations reached without convergence
+    return H;  // Return H^(t)
 }
 
 /**
