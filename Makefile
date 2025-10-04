@@ -1,9 +1,8 @@
 # Makefile for compiling and linking the symnmf program
 
 # Compiler and flags
-CC = gcc
-CFLAGS = -ansi -Wall -Wextra -Werror -pedantic-errors -g
-LDFLAGS = -lm
+COMPILER = gcc
+FLAGS = -ansi -Wall -Wextra -Werror -pedantic-errors
 
 # Source files
 SRCS = symnmf.c
@@ -14,20 +13,18 @@ OBJ_FILE = $(SRCS:.c=.o)
 HEADERS = symnmf.h
 
 # Default target
-all: symnmf
-
-symnmf: symnmf.o
+$(EXECUTABLE): $(OBJ_FILE) $(HEADERS)
 	@echo "Linking $(EXECUTABLE) executable"
-	@$(CC) $(CFLAGS) symnmf.o -o symnmf $(LDFLAGS)
+	@$(COMPILER) -o $(EXECUTABLE) $(OBJ_FILE) -lm
 
 # Compile source file to object file
-symnmf.o: symnmf.c 
+$(OBJ_FILE): symnmf.c 
 	@echo "Compiling $(OBJ_FILE) to $(OBJ_FILE)"
-	@$(CC) $(CFLAGS) -c symnmf.c 
+	@$(COMPILER) $(FLAGS) -c symnmf.c 
 
 clean:
 	@echo "Cleaning up"
-	@rm -f *.o symnmf
+	@rm -f $(OBJ_FILE) $(EXECUTABLE)
 
 # Phony targets
 .PHONY: all clean
