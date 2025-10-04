@@ -316,8 +316,8 @@ double** matrix_norm(double** matrix, int rsize, int csize) {
 /**
  * Computes the Frobenius norm (matrix 2-norm) of a matrix
  * @param matrix: input matrix
- * @param rsize: number of rows
- * @param csize: number of columns
+ * @param rsize: the number of rows
+ * @param csize: the number of columns
  * @return The Frobenius norm as a double
  */
 double frobenius_norm(double** matrix, int rsize, int csize) 
@@ -474,25 +474,33 @@ double** matrix_symnmf(double** W, double** H, int N, int k)
 {
     int iter;
     double** H_new = NULL;
+    double** H_current = NULL;
+
+    /* Allocate initial result matrix */
+    H_current = matrix_malloc(N, k);
+    if (!H_current) return NULL;
+
+    /* Copy initial H to H_current */
+    advance_H(H_current, H, N, k);
 
     for(iter = 0; iter < MAX_ITER; iter++) {
-        H_new = update_H(W, H, N, k);
+        H_new = update_H(W, H_current, N, k);
         if (H_new == NULL) {
-            return NULL; /* Error during update */
+            matrix_free(H_current, N);
+            return NULL;
         }
 
-        if (matrix_convergence(H_new, H, N, k)) {
-            matrix_free(H, N);  // Free H^(t)
-            return H_new;       // Return H^(t+1) - this is correct!
+        if (matrix_convergence(H_new, H_current, N, k)) {
+            matrix_free(H_current, N);
+            return H_new;  /* Return H^(t+1) */
         }
-        
-        advance_H(H, H_new, N, k);
+
+        /* Update H_current with new values */
+        advance_H(H_current, H_new, N, k);
         matrix_free(H_new, N);
-        H_new = NULL;
     }
 
-    // If max iterations reached without convergence
-    return H;  // Return H^(t)
+    return H_current;  /* Return final H if max iterations reached */
 }
 
 /**
@@ -626,3 +634,4 @@ int main(int argc, char* argv[])
     free(goal);
     return 0;
 }
+
