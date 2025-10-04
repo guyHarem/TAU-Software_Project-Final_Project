@@ -101,8 +101,7 @@ double** matrix_malloc(int rsize, int csize)
 double** matrix_multiply(double** matrix_a, double** matrix_b, int a_rsize, int a_csize, int b_csize) {
     int i, j, k;
     double** matrix_r = matrix_malloc(a_rsize, b_csize);
-    if(matrix_r == NULL) {
-        fprintf(stderr, "An Error Has Occured"); /* memory allocation failed */
+    if(matrix_r == NULL) { /* Memory allocation failed */
         return NULL;
     }
     
@@ -128,8 +127,7 @@ double** matrix_multiply(double** matrix_a, double** matrix_b, int a_rsize, int 
 double** matrix_transpose(double** matrix, int rsize, int csize) {
     int i, j;
     double** matrix_t = matrix_malloc(csize, rsize);
-    if(matrix_t == NULL) {
-        fprintf(stderr, "An Error Has Occured");
+    if(matrix_t == NULL) { /* Memory allocation failed */
         return NULL;
     }
 
@@ -152,8 +150,7 @@ double** matrix_transpose(double** matrix, int rsize, int csize) {
 double** matrix_subtract(double** matrix_a, double** matrix_b, int rsize, int csize) {
     int i, j;
     double** matrix_r = matrix_malloc(rsize, csize);
-    if(matrix_r == NULL) {
-        fprintf(stderr, "An Error Has Occured");
+    if(matrix_r == NULL) { /* Memory allocation failed */
         return NULL;
     }
 
@@ -201,8 +198,7 @@ double** matrix_sym(double** matrix, int rsize, int csize)
 
     /* Allocate memory for the similarity matrix (rsize x rsize) */
     sym_matrix = matrix_malloc(rsize, rsize);
-    if (sym_matrix == NULL) {
-        fprintf(stderr, "An Error Has Occured");
+    if (sym_matrix == NULL) { /* Memory allocation failed */
         return NULL;
     }
 
@@ -221,7 +217,6 @@ double** matrix_sym(double** matrix, int rsize, int csize)
             }
         }
     }
-
     return sym_matrix;
 }
 
@@ -241,14 +236,13 @@ double** matrix_ddg(double** matrix, int rsize, int csize) {
     double** ddg_matrix = NULL;
 
     sym_matrix = matrix_sym(matrix, rsize, csize); /* calculating similarity matrix first */
-    if(sym_matrix == NULL) {
-        fprintf(stderr, "An Error Has Occured");
+    if(sym_matrix == NULL) { /* Memory allocation failed */
         return NULL;
     }
 
     ddg_matrix = matrix_malloc(rsize, rsize);
-    if(ddg_matrix == NULL) {
-        fprintf(stderr, "An Error Has Occured");
+    if(ddg_matrix == NULL) { /* Memory allocation failed */
+        matrix_free(sym_matrix, rsize);
         return NULL;
     }
 
@@ -283,16 +277,16 @@ double** matrix_norm(double** matrix, int rsize, int csize) {
     double** W = NULL;
 
     A = matrix_sym(matrix, rsize, csize);
-    if(A == NULL) return NULL;
+    if(A == NULL) return NULL; /* Memory allocation failed */
 
     D = matrix_ddg(matrix, rsize, csize);
-    if(D == NULL) {
+    if(D == NULL) { /* Memory allocation failed */
         matrix_free(A, rsize);
         return NULL;
     }
 
     W = matrix_malloc(rsize, rsize);
-    if(W == NULL) {
+    if(W == NULL) { /* Memory allocation failed */
         matrix_free(A, rsize);
         matrix_free(D, rsize);
         return NULL;
@@ -347,8 +341,8 @@ int matrix_convergence(double** matrix_a, double** matrix_b, int rsize, int csiz
     double norm_diff = 0.0;
 
     diff_matrix = matrix_subtract(matrix_a, matrix_b, rsize, csize);
-    if (diff_matrix == NULL) {
-        return 0; /* Error case - assume not converged */
+    if (diff_matrix == NULL) {  /* Memory allocation failed */
+        return NULL; 
     }
 
     norm_diff = frobenius_norm(diff_matrix, rsize, csize);
@@ -478,14 +472,14 @@ double** matrix_symnmf(double** W, double** H, int N, int k)
 
     /* Allocate initial result matrix */
     H_current = matrix_malloc(N, k);
-    if (!H_current) return NULL;
+    if (H_current == NULL) return NULL; /* Memory allocation failed */
 
     /* Copy initial H to H_current */
     advance_H(H_current, H, N, k);
 
     for(iter = 0; iter < MAX_ITER; iter++) {
         H_new = update_H(W, H_current, N, k);
-        if (H_new == NULL) {
+        if (H_new == NULL) { /* Memory allocation failed */
             matrix_free(H_current, N);
             return NULL;
         }
@@ -516,7 +510,7 @@ char* duplicateString(char* src)
 
     if(src == NULL)
     {
-        printf("An error has occured");
+        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
     
@@ -543,33 +537,33 @@ double** read_vectors_from_file(const char *filename)
     char line[MAXLINE];
     char* token;
     int i,j;
-    int row_count = 0;
-    int col_count = 0;
+    int rsize = 0;
+    int csize = 0;
     double** matrix = NULL;
 
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
-        perror("Error opening file");
+        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
 
     /* First pass to determine the number of rows and columns */
     while (fgets(line, sizeof(line), file)) {
-        row_count++;
+        rsize++;
 
         /* Count columns in the first row */
-        if (row_count == 1) {
+        if (rsize == 1) {
             char* temp = duplicateString(line);  /* Duplicate line for counting columns */
             char* token = strtok(temp, ",");
             while (token != NULL) {
-                col_count++;
+                csize++;
                 token = strtok(NULL, ",");
             }
             free(temp);
         }
     }
-    N_const = row_count;
-    vectordim_const = col_count;
+    N_const = rsize;
+    vectordim_const = csize;
 
     /* Allocate memory for the 2D matrix */
     matrix = matrix_malloc(N_const, vectordim_const);
@@ -612,7 +606,6 @@ int main(int argc, char* argv[])
     {
         free(goal);
         matrix_free(data_matrix, N_const);
-        fprintf(stderr,"An Error Has Occured");
         return 1;
     }
 

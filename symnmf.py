@@ -48,7 +48,7 @@ def main():
 
         match goal:
             case "sym":
-                matrix_goal = SymNMF.matrix_sym(vectors)
+                matrix_goal = SymNMF.matrix_sym(vectors) # Calling matrix_sym function in C to calculate the matrix
             case "ddg":
                 matrix_goal = SymNMF.matrix_ddg(vectors) # Calling matrix_ddg function in C to calculate the matrix
             case "norm":
