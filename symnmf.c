@@ -266,29 +266,6 @@ double** matrix_ddg(double** matrix, int rsize, int csize) {
     return ddg_matrix;
 }
 
-/**
- * Creates D^(-1/2) matrix from diagonal degree matrix
- * @param D: diagonal degree matrix
- * @param size: matrix size
- * @return D^(-1/2) matrix, or NULL on failure
- */
-double** matrix_inv_sqrt(double** D, int size) {
-    int i, j;
-    double** D_inv_sqrt = NULL;
-    D_inv_sqrt = matrix_malloc(size, size);
-    if (D_inv_sqrt == NULL) return NULL;
-    
-    for (i = 0; i < size; i++) {
-        for (j = 0; j < size; j++) {
-            if (i == j && D[i][i] > 0) {
-                D_inv_sqrt[i][j] = 1.0 / sqrt(D[i][i]);
-            } else {
-                D_inv_sqrt[i][j] = 0.0;
-            }
-        }
-    }
-    return D_inv_sqrt;
-}
 
 /**
  * Computes the normalized similarity matrix using SymNMF approach
@@ -300,52 +277,40 @@ double** matrix_inv_sqrt(double** D, int size) {
  */
 double** matrix_norm(double** matrix, int rsize, int csize) {
 
+    int i, j;
     double** A = NULL;
     double** D = NULL;
-    double** D_inv_sqrt = NULL;
-    double** temp = NULL;
     double** W = NULL;
 
     A = matrix_sym(matrix, rsize, csize);
-    if (A == NULL) return NULL;
+    if(A == NULL) return NULL;
 
-    D = matrix_ddg(A, rsize, rsize);
-    if (D == NULL) {
+    D = matrix_ddg(matrix, rsize, csize);
+    if(D == NULL) {
         matrix_free(A, rsize);
         return NULL;
     }
 
-    D_inv_sqrt = matrix_inv_sqrt(D, rsize);
-    if (D_inv_sqrt == NULL) {
-        matrix_free(A, rsize);
-        matrix_free(D, rsize);
-        return NULL;
-    }
-
-    temp = matrix_multiply(D_inv_sqrt, A, rsize, rsize, rsize); /* D^(-1/2) * A */
-    if (temp == NULL) {
+    W = matrix_malloc(rsize, rsize);
+    if(W == NULL) {
         matrix_free(A, rsize);
         matrix_free(D, rsize);
-        matrix_free(D_inv_sqrt, rsize);
         return NULL;
     }
 
-    W = matrix_multiply(temp, D_inv_sqrt, rsize, rsize, rsize); /* (D^(-1/2) * A) * D^(-1/2) */
-    if (W == NULL) {
-        matrix_free(A, rsize);
-        matrix_free(D, rsize);
-        matrix_free(D_inv_sqrt, rsize);
-        matrix_free(temp, rsize);
-        return NULL;
+    for(i = 0; i < rsize; i++) {
+        for(j = 0; j < rsize; j++) {
+            W[i][j] = A[i][j] / sqrt(D[i][i] * D[j][j]); /* Normalization step */
+        }
     }
+
     /* Clean up all intermediate matrices after computations */
     matrix_free(A, rsize);
     matrix_free(D, rsize);
-    matrix_free(D_inv_sqrt, rsize);
-    matrix_free(temp, rsize);
 
     return W;
 }
+
 
 
 /**
