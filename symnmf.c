@@ -342,7 +342,7 @@ int matrix_convergence(double** matrix_a, double** matrix_b, int rsize, int csiz
 
     diff_matrix = matrix_subtract(matrix_a, matrix_b, rsize, csize);
     if (diff_matrix == NULL) {  /* Memory allocation failed */
-        return NULL; 
+        return 0; 
     }
 
     norm_diff = frobenius_norm(diff_matrix, rsize, csize);

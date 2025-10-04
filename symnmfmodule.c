@@ -22,13 +22,11 @@ double** conv_pylist_to_carr(PyObject* pylist, double** carr, int rsize, int csi
     for(i = 0; i < rsize; i++) {
         row = PyList_GetItem(pylist, i);
         if (!PyList_Check(row) || PyList_Size(row) != csize) {
-            fprintf(stderr, "An Error Has Occured");
             return NULL;
         }
         for(j = 0; j < csize; j++) {
             item = PyList_GetItem(row, j);
             if (!PyFloat_Check(item)) {
-                fprintf(stderr, "An Error Has Occured");
                 return NULL;
             }
             carr[i][j] = PyFloat_AsDouble(item);
@@ -52,7 +50,6 @@ PyObject* conv_carr_to_pylist(double** carr, int rsize, int csize)
     PyObject *row;
 
     if (pylist == NULL) {
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
     for(i = 0; i < rsize; i++)
@@ -84,30 +81,25 @@ double** conv_pyvectors_to_carr(PyObject* self, PyObject* args)
     double** carr = NULL;
 
     if (!PyArg_ParseTuple(args, "O", &vec_arr_obj)) {
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
 
     N = PyList_Size(vec_arr_obj);
     if (N <= 0) {
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
-    }   
+    }
 
     vectordim = PyList_Size(PyList_GetItem(vec_arr_obj, 0));
     if (vectordim <= 0) {
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
 
     carr = matrix_malloc(N, vectordim);
     if (carr == NULL) {
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
     if (conv_pylist_to_carr(vec_arr_obj, carr, N, vectordim) == NULL) {
         matrix_free(carr, N);
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
     return carr;
@@ -126,21 +118,18 @@ static PyObject* sym_module(PyObject* self, PyObject* args)
 {
     double** matrix = conv_pyvectors_to_carr(self, args);
     if (matrix == NULL) {
-    fprintf(stderr, "An Error Has Occured");
     return NULL;
     }
 
     double** sym_matrix = matrix_sym(matrix, N, vectordim);
     matrix_free(matrix, N);
     if (sym_matrix == NULL) {
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
 
     PyObject* py_sym_matrix = conv_carr_to_pylist(sym_matrix, N, N);
     matrix_free(sym_matrix, N);
     if (py_sym_matrix == NULL) {
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
 
@@ -163,21 +152,18 @@ static PyObject* ddg_module(PyObject* self, PyObject* args)
 {
     double** matrix = conv_pyvectors_to_carr(self, args);
     if (matrix == NULL) {
-    fprintf(stderr, "An Error Has Occured");
     return NULL;
     }
 
     double** ddg_matrix = matrix_ddg(matrix, N, vectordim);
     matrix_free(matrix, N);
     if (ddg_matrix == NULL) {
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
 
     PyObject* py_ddg_matrix = conv_carr_to_pylist(ddg_matrix, N, N);
     matrix_free(ddg_matrix, N);
     if (py_ddg_matrix == NULL) {
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
 
@@ -197,21 +183,18 @@ static PyObject* norm_module(PyObject* self, PyObject* args)
 {
     double** matrix = conv_pyvectors_to_carr(self, args);
     if (matrix == NULL) {
-    fprintf(stderr, "An Error Has Occured");
     return NULL;
     }
 
     double** norm_matrix = matrix_norm(matrix, N, vectordim);
     matrix_free(matrix, N);
     if (norm_matrix == NULL) {
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
 
     PyObject* py_norm_matrix = conv_carr_to_pylist(norm_matrix, N, N);
     matrix_free(norm_matrix, N);
     if (py_norm_matrix == NULL) {
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
 
@@ -236,25 +219,21 @@ double** conv_symnmf(PyObject* self, PyObject* args)
     double** matrix_H = NULL;
 
     if (!PyArg_ParseTuple(args, "OOi", &matrix_W_obj, &matrix_H_obj, &k)) {
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
 
     N = PyList_Size(matrix_W_obj);
     if (N <= 0) {
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
 
     matrix_W = matrix_malloc(N, N);
     if (matrix_W == NULL) {
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
     matrix_H = matrix_malloc(N, k);
     if (matrix_H == NULL) {
         matrix_free(matrix_W, N);
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
 
@@ -265,7 +244,6 @@ double** conv_symnmf(PyObject* self, PyObject* args)
     if (result_H == NULL) {
         matrix_free(matrix_W, N);
         matrix_free(matrix_H, N);  
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
 
@@ -288,14 +266,12 @@ static PyObject* symnmf_module(PyObject* self, PyObject* args)
 {
     double** result_H = conv_symnmf(self, args);
     if (result_H == NULL) {
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
 
     PyObject* py_result_H = conv_carr_to_pylist(result_H, N, k);
     matrix_free(result_H, N);
     if (py_result_H == NULL) {
-        fprintf(stderr, "An Error Has Occured");
         return NULL;
     }
 

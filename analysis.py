@@ -1,3 +1,4 @@
+# Performs clustering analysis using K-means and SymNMF methods and compares their performance
 import sys
 import math
 import pandas as pd
@@ -8,14 +9,14 @@ from sklearn.metrics import silhouette_score
 
     
 def findClosestCentroid(vector, centroids):
-    """Finds the index of the closest centroid to a given vector.
+    """Finds the index of the closest centroid to a given vector using Euclidean distance.
     
     Args:
-        vector (list): The vector for which to find the closest centroid.
-        centroids (list): List of current centroids.
+        vector (numpy.ndarray): The vector to find its closest centroid.
+        centroids (numpy.ndarray): Matrix of centroids.
         
     Returns:
-        int: Index of the closest centroid.
+        int: Index of the closest centroid based on minimum Euclidean distance.
     """
     vector = np.array(vector)  # Convert to numpy array
     centroids = np.array(centroids)  # Convert to numpy array
@@ -28,51 +29,58 @@ def findClosestCentroid(vector, centroids):
 
 
 def findKmeansLabels(vectors, k):
-    """Finds K-means cluster labels for given vectors.
+    """Performs K-means clustering and returns cluster labels.
 
     Args:
-        vectors (list): List of vectors to cluster.
+        vectors (pandas.DataFrame): Input data vectors.
         k (int): Number of clusters.
 
     Returns:
-        list: Cluster labels for each vector.
+        list: Cluster labels (0 to k-1) for each input vector.
     """
-    vectors = np.array(vectors)
-    kmeans_matrix = KMeans.doKmeans(vectors, k) 
-    kmeans_labels = [-1 for i in range(len(vectors))]  # Initialize labels with -1
-    
+    vectors = vectors.to_numpy()  # Convert DataFrame to numpy array
+    kmeans_matrix = KMeans.doKmeans(vectors, k)
+    kmeans_labels = [-1 for i in range(len(vectors))]
     for i in range(len(vectors)):
-        kmeans_labels[i] = findClosestCentroid(vectors[i], kmeans_matrix)  # Assign label based on closest centroid
-        
+        kmeans_labels[i] = findClosestCentroid(vectors[i], kmeans_matrix)
     return kmeans_labels
-
+        
 
 def findSymNMFLabels(vectors, k):
-    """Finds SymNMF cluster labels for given vectors.
+    """Performs SymNMF clustering and returns cluster labels.
 
     Args:
-        vectors (list): List of vectors to cluster.
+        vectors (pandas.DataFrame): Input data vectors.
         k (int): Number of clusters.
 
     Returns:
-        list: Cluster labels for each vector.
+        numpy.ndarray: Cluster labels (0 to k-1) for each input vector based on highest association score.
     """
-    vectors = np.array(vectors)
-    symnmf_matrix = SymNMF.doSymNMF(vectors, k)  
-    symnmf_labels = [-1 for i in range(len(vectors))]  # Initialize labels with -1
+    vectors = vectors.values.tolist()  # Convert DataFrame to list of lists
+    symnmf_matrix = SymNMF.doSymNMF(vectors, k)
 
-    for i in range(len(vectors)):
-        symnmf_labels[i] = findClosestCentroid(vectors[i], symnmf_matrix)  # Assign label based on closest centroid
-
-    return symnmf_labels
+    return np.array(symnmf_matrix).argmax(axis=1)
 
 
 def main():
+    """Main function for clustering analysis.
+
+    Command line arguments:
+        k (int): Number of clusters
+        input_file (str): Path to input CSV file
+
+    Prints:
+        nmf: <symnmf_silhouette_score>
+        kmeans: <kmeans_silhouette_score>
+
+    Raises:
+        Exception: If an error occurs during execution
+    """
     try:
         input_data = sys.argv
         k, input_file = int(input_data[1]), input_data[2]
 
-        vectors = pd.read_csv(input_file, header=None).values.tolist()  # Read the input file and convert it to a list of lists
+        vectors = pd.read_csv(input_file, header=None)  # Read the input file
 
         kmeans_labels = findKmeansLabels(vectors, k)  # Get K-means labels
         symnmf_labels = findSymNMFLabels(vectors, k)  # Get SymNMF labels
