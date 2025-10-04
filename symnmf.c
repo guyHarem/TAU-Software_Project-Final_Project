@@ -50,8 +50,6 @@ void matrix_free(double** matrix, int rsize)
 }
 
 
-
-
 /**
  * Allocates memory for a matrix of doubles with dimensions rsize*csize
  * @param rsize: the number of rows
@@ -182,9 +180,8 @@ double euc_dist(double* vec1, double* vec2, int vecdim) {
         double diff = vec1[i] - vec2[i];
         sum += diff * diff;
     }
-    return sqrt(sum);
+    return sum;
 }
-
 
 
 /**
@@ -257,8 +254,8 @@ double** matrix_ddg(double** matrix, int rsize, int csize) {
 
     for(i = 0; i < rsize; i++) {
         sum = 0.0;
-        for(j = 0; j < csize; j++) {
-            sum += sym_matrix[i][j];
+        for(j = 0; j < rsize; j++) {
+            sum += sym_matrix[i][j]; /* Compute row sum */
         }
         for(j = 0; j < rsize; j++) {
             ddg_matrix[i][j] = (i == j) ? sum : 0.0; /* Diagonal matrix */
@@ -268,7 +265,6 @@ double** matrix_ddg(double** matrix, int rsize, int csize) {
     matrix_free(sym_matrix, rsize); /* Free the intermediate similarity matrix */
     return ddg_matrix;
 }
-
 
 /**
  * Creates D^(-1/2) matrix from diagonal degree matrix
@@ -351,6 +347,7 @@ double** matrix_norm(double** matrix, int rsize, int csize) {
     return W;
 }
 
+
 /**
  * Computes the Frobenius norm (matrix 2-norm) of a matrix
  * @param matrix: input matrix
@@ -367,7 +364,7 @@ double frobenius_norm(double** matrix, int rsize, int csize)
             sum += matrix[i][j] * matrix[i][j];
         }
     }
-    return sqrt(sum);
+    return sum;
 }
 
 /**
@@ -536,65 +533,57 @@ char* duplicateString(char* src)
  * @param filename: path to the input file
  * @return Pointer to the allocated 2D matrix of doubles, or NULL on failure
  */
-double** read_vectors_from_file(const char* filename) {
+double** read_vectors_from_file(const char *filename)
+{
     char line[MAXLINE];
     char* token;
-    int rsize = 0;
-    int csize = -1; /* Initialize csize to -1 to detect first line */
-    int i, j;
+    int i,j;
+    int row_count = 0;
+    int col_count = 0;
     double** matrix = NULL;
 
-    FILE* file = fopen(filename, "r");
+    FILE *file = fopen(filename, "r");
     if (file == NULL) {
-        fprintf(stderr, "An Error Has Occured");
+        perror("Error opening file");
         return NULL;
     }
 
-    /* First pass: determine rsize and csize */
+    /* First pass to determine the number of rows and columns */
     while (fgets(line, sizeof(line), file)) {
-        int temp_csize = 0;
-        token = strtok(line, " ");
-        while (token != NULL) {
-            temp_csize++;
-            token = strtok(NULL, " ");
-        }
-        if (csize == -1) {
-            csize = temp_csize; /* Set csize based on the first line */
-        } else if (temp_csize != csize) {
-            fprintf(stderr, "An Error Has Occured"); /* Inconsistent column count */
-            fclose(file);
-            return NULL;
-        }
-        rsize++;
-    }
+        row_count++;
 
-    /* Allocate memory for the matrix */
-    matrix = matrix_malloc(rsize, csize);
-    if (matrix == NULL) {
-        fclose(file);
-        return NULL;
+        /* Count columns in the first row */
+        if (row_count == 1) {
+            char* temp = duplicateString(line);  /* Duplicate line for counting columns */
+            char* token = strtok(temp, ",");
+            while (token != NULL) {
+                col_count++;
+                token = strtok(NULL, ",");
+            }
+            free(temp);
+        }
     }
+    N_const = row_count;
+    vectordim_const = col_count;
 
-    /* Second pass: read the actual data */
+    /* Allocate memory for the 2D matrix */
+    matrix = matrix_malloc(N_const, vectordim_const);
+
+    /* Reset file pointer to beginning and read values into matrix */
     rewind(file);
     i = 0;
-    while (fgets(line, sizeof(line), file) && i < rsize) {
+    while (fgets(line, sizeof(line), file)) {
         j = 0;
-        token = strtok(line, " ");
-        while (token != NULL && j < csize) {
-            matrix[i][j] = atof(token);
-            j++;
-            token = strtok(NULL, " ");
+        token = strtok(line, ",");
+        while (token != NULL) {
+            matrix[i][j++] = atof(token);  /* Convert token to double and store in matrix */
+            token = strtok(NULL, ",");
         }
         i++;
     }
 
     fclose(file);
-
-    /* Set the static global variables */
-    N_const = rsize;
-    vectordim_const = csize;
-    
+   
     return matrix;
 }
 
